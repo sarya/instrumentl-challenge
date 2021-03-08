@@ -60,10 +60,14 @@ def _get_filings_async(state):
 
 
 def get_filings(request):
+    for j in django_rq.get_queue('default').jobs:
+        if j.func_name == 'filings.parser.parse_filing' and j.result == None:
+            return HttpResponse('parsing filings, please wait 15 seconds and refresh...')
+
     state = request.GET.get('state') or 'ALL'
     if r.exists(state):
         state_data = json.loads(r.get(state))
         return JsonResponse(state_data, json_dumps_params={'indent': 2})
 
     django_rq.enqueue(_get_filings_async, state)
-    return HttpResponse('generating data, please wait a few seconds and refresh...')
+    return HttpResponse('generating JSON output, please wait a few seconds and refresh...')

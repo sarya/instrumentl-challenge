@@ -77,3 +77,5 @@ def parse_filing(url):
                 filing_url=url,
             )
             award.save()
+
+    return True
