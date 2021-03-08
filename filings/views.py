@@ -1,13 +1,23 @@
+import json
+
 import django_rq
+import redis
 from django.db import transaction
 from django.forms.models import model_to_dict
 from django.http import HttpResponse, JsonResponse
+
+from challenge.settings import REDIS_URL
 
 from .models import Award, Organization
 from .parser import parse_filing
 
 
+r = redis.Redis.from_url(REDIS_URL)
+
+
 def parse_filings(request):
+    r.flushall()
+
     Award.objects.all().delete()
     Organization.objects.all().delete()
 
@@ -27,13 +37,11 @@ def parse_filings(request):
     for u in urls:
         django_rq.enqueue(parse_filing, u)
 
-    return HttpResponse('parsing...')
+    return HttpResponse('parsing initiated')
 
 
-def get_filings(request):
-    state = request.GET.get('state')
-    
-    if state:
+def _get_filings_async(state):
+    if state != 'ALL':
         awards = Award.objects.filter(recipient__in=Organization.objects.filter(state=state))
     else:
         awards = Award.objects.all()
@@ -48,4 +56,14 @@ def get_filings(request):
         award_data['recipient'] = model_to_dict(a.recipient)
         filers[a.filer.id]['awards'].append(award_data)
 
-    return JsonResponse({'filers': list(filers.values())}, json_dumps_params={'indent': 2})
+    r.set(state, json.dumps({'filers': list(filers.values())}))
+
+
+def get_filings(request):
+    state = request.GET.get('state') or 'ALL'
+    if r.exists(state):
+        state_data = json.loads(r.get(state))
+        return JsonResponse(state_data, json_dumps_params={'indent': 2})
+
+    django_rq.enqueue(_get_filings_async, state)
+    return HttpResponse('generating data, please wait a few seconds and refresh...')

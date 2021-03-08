@@ -126,9 +126,11 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
+REDIS_URL = os.getenv('REDISTOGO_URL', 'redis://localhost:6379/0')
+
 RQ_QUEUES = {
     'default': {
-        'URL': os.getenv('REDISTOGO_URL', 'redis://localhost:6379/0'),
+        'URL': REDIS_URL,
         'DEFAULT_TIMEOUT': 500,
     },
 }
