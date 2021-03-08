@@ -62,7 +62,7 @@ def _get_filings_async(state):
 def get_filings(request):
     for j in django_rq.get_queue('default').jobs:
         if j.func_name == 'filings.parser.parse_filing' and j.result == None:
-            return HttpResponse('parsing filings, please wait 15 seconds and refresh...')
+            return HttpResponse('parsing filings, please wait a minute and refresh...')
 
     state = request.GET.get('state') or 'ALL'
     if r.exists(state):
